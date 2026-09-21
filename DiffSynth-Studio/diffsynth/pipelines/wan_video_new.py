@@ -126,7 +126,6 @@ class WanVideoPipeline(BasePipeline):
         
         loss = torch.nn.functional.mse_loss(noise_pred.float(), training_target.float())
         loss = loss * self.scheduler.training_weight(timestep)
-        print(loss)
         return loss
 
     def cm_forward(self, timestep, **inputs):
@@ -642,160 +641,6 @@ class WanVideoPipeline(BasePipeline):
 
         return video
     
-    @torch.no_grad()
-    def autoregressive_generate(
-        self,
-        
-        prompt: str,
-        negative_prompt: str = "",
-        height: int = 480,
-        width: int = 832,
-        seed: int = None,
-        cfg_scale: float = 5.0,
-        num_inference_steps: int = 50,
-        
-        total_original_frames: int = 49,  
-        
-        vace_video: Optional[list[Image.Image]] = None,
-        vace_video_mask: Optional[Image.Image] = None,
-        vace_reference_image: Optional[Image.Image] = None,
-        vace_scale: Optional[float] = 1.0,
-        # VAE tiling
-        tiled: Optional[bool] = True,
-        tile_size: Optional[tuple[int, int]] = (30, 52),
-        tile_stride: Optional[tuple[int, int]] = (15, 26),
-        
-        use_kv_cache: bool = True,
-        **kwargs,  
-    ):
-
-
-
-
-
-        
-        if vace_video is not None and len(vace_video) != total_original_frames:
-            raise ValueError(f"vace_video的帧数({len(vace_video)})必须和目标总帧数({total_original_frames})一致！")
-        
-        
-        total_latent_frames = (total_original_frames - 1) // 4 + 1
-        print(f"自回归生成：总原始帧{total_original_frames} → 需生成latent帧{total_latent_frames}个")
-        
-        
-        collected_latents = []  
-        rand_seed = seed if seed is not None else torch.randint(0, 1000000, (1,)).item()
-        
-        
-        kv_cache_posi = None
-        kv_cache_nega = None
-        if use_kv_cache:
-            kv_cache_posi = DiTKVCache()
-            kv_cache_nega = DiTKVCache()
-            kv_cache_posi.to(device=self.device, dtype=self.torch_dtype)
-            kv_cache_nega.to(device=self.device, dtype=self.torch_dtype)
-
-        try:
-            
-            for latent_idx in tqdm(range(total_latent_frames), desc="生成latent帧"):
-                
-                # if use_kv_cache:
-                #     if kv_cache_posi is not None:
-                #         kv_cache_posi.reset(diffusion_step=latent_idx)
-                #     if kv_cache_nega is not None:
-                #         kv_cache_nega.reset(diffusion_step=latent_idx)
-                if use_kv_cache:
-                    kv_cache_posi.set_frame(frame_idx=latent_idx, total_layers=60)
-                    kv_cache_nega.set_frame(frame_idx=latent_idx, total_layers=60)
-                        
-                
-                if latent_idx == 0:
-                    current_original_frames_num = 1
-                else:
-                    frame_start = latent_idx * 4 - 3  
-                    frame_end = frame_start + 4
-                    frame_end = min(frame_end, total_original_frames)
-                    current_original_frames_num = frame_end - frame_start
-                
-                
-                current_vace_video = None
-                if vace_video is not None:
-                    if latent_idx == 0:
-                        current_vace_video = vace_video[0:1]
-                    else:
-                        frame_start = latent_idx * 4 - 3
-                        frame_end = min(frame_start + 4, total_original_frames)
-                        current_vace_video = vace_video[frame_start:frame_end]
-                
-                
-                current_latents = self(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    height=height,
-                    width=width,
-                    num_frames=current_original_frames_num,
-                    seed=rand_seed + latent_idx,
-                    cfg_scale=cfg_scale,
-                    num_inference_steps=num_inference_steps,
-                    autoregressive_mode=True,
-                    target_latent_num=1,
-                    kv_cache_posi=kv_cache_posi,
-                    kv_cache_nega=kv_cache_nega,
-                    vace_video=current_vace_video,
-                    vace_video_mask=vace_video_mask,
-                    vace_reference_image=vace_reference_image,
-                    vace_scale=vace_scale,
-                    return_latents=True,  
-                    latent_idx=latent_idx,
-                    **kwargs,
-                )
-
-                
-                
-                if vace_reference_image is not None or (kwargs.get("animate_pose_video") is not None and kwargs.get("animate_face_video") is not None):
-                    current_latents = current_latents[:, :, 1:]  
-                collected_latents.append(current_latents)
-                
-                
-                torch.cuda.empty_cache()
-            
-            
-            
-            
-            full_latents = torch.cat(collected_latents, dim=2)
-            print(f"拼接完成：latents维度 {full_latents.shape}")
-            
-            
-            self.load_models_to_device(['vae'])
-            
-            video = self.vae.decode(
-                full_latents, 
-                device=self.device, 
-                tiled=tiled, 
-                tile_size=tile_size, 
-                tile_stride=tile_stride
-            )
-            
-            generated_original_frames = self.vae_output_to_video(video)
-            
-            
-            if len(generated_original_frames) > total_original_frames:
-                generated_original_frames = generated_original_frames[:total_original_frames]
-            
-        finally:
-            
-            if use_kv_cache:
-                if kv_cache_posi is not None:
-                    kv_cache_posi.empty_cache()
-                    del kv_cache_posi
-                if kv_cache_nega is not None:
-                    kv_cache_nega.empty_cache()
-                    del kv_cache_nega
-            torch.cuda.empty_cache()
-        
-        
-        return generated_original_frames
-
-
 
 class WanVideoUnit_ShapeChecker(PipelineUnit):
     def __init__(self):
@@ -1036,7 +881,6 @@ class WanVideoUnit_FunControl(PipelineUnit):
             y = torch.zeros((1, y_dim, (num_frames - 1) // 4 + 1, height//8, width//8), dtype=pipe.torch_dtype, device=pipe.device)
         else:
             y = y[:, -y_dim:]
-        print(control_latents.shape, y.shape)
         y = torch.concat([control_latents, y], dim=1)
         return {"clip_feature": clip_feature, "y": y}
     
@@ -1645,8 +1489,7 @@ def model_fn_wan_video(
     latent_idx: int = None,
     **kwargs,
 ):
-    # print(type(vace))
-    # print(vace.vace_layers)
+
     if sliding_window_size is not None and sliding_window_stride is not None:
         model_kwargs = dict(
             dit=dit,
@@ -1894,7 +1737,7 @@ def model_fn_wan_video(
                 if use_unified_sequence_parallel and dist.is_initialized() and dist.get_world_size() > 1:
                     current_vace_hint = torch.chunk(current_vace_hint, get_sequence_parallel_world_size(), dim=1)[get_sequence_parallel_rank()]
                     current_vace_hint = torch.nn.functional.pad(current_vace_hint, (0, 0, 0, chunks[0].shape[1] - current_vace_hint.shape[1]), value=0)
-                # print(current_vace_hint.shape)
+                
                 x = x + current_vace_hint * vace_scale
             
             # Animate

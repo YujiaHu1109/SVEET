@@ -24,13 +24,29 @@ class WanTrainingModule(DiffusionTrainingModule):
         model_configs = self.parse_model_configs(model_paths, model_id_with_origin_paths, enable_fp8_training=False)
         if audio_processor_config is not None:
             audio_processor_config = ModelConfig(model_id=audio_processor_config.split(":")[0], origin_file_pattern=audio_processor_config.split(":")[1])
+        # self.pipe = WanVideoPipeline.from_pretrained(
+        #     torch_dtype=torch.bfloat16,
+        #     device="cpu",
+        #     model_configs=model_configs,
+        #     audio_processor_config=audio_processor_config,
+        # )
         self.pipe = WanVideoPipeline.from_pretrained(
             torch_dtype=torch.bfloat16,
-            device="cpu",
-            model_configs=model_configs,
-            audio_processor_config=audio_processor_config,
+            device="cuda",
+            model_configs=[
+                ModelConfig(
+                    model_id="Wan-AI/Wan2.1-VACE-1.3B",
+                    origin_file_pattern="diffusion_pytorch_model.safetensors",
+                    local_model_path="../checkpoints/bidirectional/",
+                    skip_download=True,
+                ),
+                ModelConfig(model_id="Wan-AI/Wan2.1-VACE-1.3B", origin_file_pattern="models_t5_umt5-xxl-enc-bf16.pth", local_model_path="../checkpoints/bidirectional/", skip_download=True),
+                ModelConfig(model_id="Wan-AI/Wan2.1-VACE-1.3B", origin_file_pattern="Wan2.1_VAE.pth", local_model_path="../checkpoints/bidirectional/", skip_download=True),
+            ],
+            redirect_common_files=False 
         )
 
+        # ===============Loading Pi_perp checkpoint=====================
         
         if not pi_perp_path:
             raise ValueError("--pi_perp_path is required for orthogonal training.")
@@ -38,7 +54,7 @@ class WanTrainingModule(DiffusionTrainingModule):
         pi_perp_data = torch.load(pi_perp_path, map_location="cpu", weights_only=False)
         self.pipe.vace.load_orthogonal_constraints(pi_perp_data, enable=True)
             
-        # ====================================
+        # ==============================================================
         
         # Training mode
         self.switch_pipe_to_training_mode(

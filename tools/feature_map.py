@@ -42,7 +42,7 @@ def load_video_paths_from_csv(csv_path, dataset_root, video_column="video_path")
             if p and os.path.exists(p):
                 paths.append(p)
             else:
-                print(f"[Warning] 跳过不存在的视频: {p}")
+                print(f"[Warning] Skipping video: {p}")
     import random
     random.Random(42).shuffle(paths)
     return paths
@@ -115,6 +115,7 @@ def main():
     LOCAL_MODEL_ROOT = args.model_root
     CAUSAL_MODEL_ROOT = args.causal_model_root
     MODEL_SUB_DIR = "Wan-AI/Wan2.1-VACE-1.3B"
+    MODEL_SUB_DIR_CAUSAL = "Wan-AI/Wan2.1-T2V-1.3B"
     DIFFUSION_FILE = "diffusion_pytorch_model.safetensors"
     TEXT_ENCODER_FILE = "models_t5_umt5-xxl-enc-bf16.pth"
     VAE_FILE = "Wan2.1_VAE.pth"
@@ -140,11 +141,11 @@ def main():
     pipe_cf = WanVideoPipeline.from_pretrained(
         torch_dtype=torch.bfloat16, device="cuda",
         model_configs=[
-            ModelConfig(model_id=MODEL_SUB_DIR, origin_file_pattern=DIFFUSION_FILE,
+            ModelConfig(model_id=MODEL_SUB_DIR_CAUSAL, origin_file_pattern=DIFFUSION_FILE,
                         local_model_path=CAUSAL_MODEL_ROOT, skip_download=True),
-            ModelConfig(model_id=MODEL_SUB_DIR, origin_file_pattern=TEXT_ENCODER_FILE,
+            ModelConfig(model_id=MODEL_SUB_DIR_CAUSAL, origin_file_pattern=TEXT_ENCODER_FILE,
                         local_model_path=LOCAL_MODEL_ROOT, skip_download=True),
-            ModelConfig(model_id=MODEL_SUB_DIR, origin_file_pattern=VAE_FILE,
+            ModelConfig(model_id=MODEL_SUB_DIR_CAUSAL, origin_file_pattern=VAE_FILE,
                         local_model_path=LOCAL_MODEL_ROOT, skip_download=True),
         ],
         redirect_common_files=False,
@@ -159,11 +160,11 @@ def main():
     
     
     all_paths = load_video_paths_from_csv(CSV_PATH, args.dataset_root, VIDEO_COLUMN)
-    print(f"CSV 总视频数: {len(all_paths)}")
+    print(f"CSV total video count: {len(all_paths)}")
     
     train_paths = all_paths[:NUM_TRAIN]
     holdout_paths = all_paths[NUM_TRAIN:NUM_TRAIN + NUM_HOLDOUT]
-    print(f"训练集: {len(train_paths)}, holdout: {len(holdout_paths)}")
+    print(f"Training set: {len(train_paths)}, holdout: {len(holdout_paths)}")
     
     
     A = {ell: torch.zeros(C, C, dtype=torch.float64) for ell in vace_inject_layers}
@@ -171,7 +172,6 @@ def main():
     total_samples = 0
     
     
-    print("\n=== 累加 X^T X 和 X^T Y ===")
     for video_path in tqdm(train_paths):
         try:
             feats_X, feats_Y = extract_feature_pair(
@@ -197,10 +197,10 @@ def main():
         gc.collect()
         torch.cuda.empty_cache()
     
-    print(f"\n累计 token 总数: {total_samples}")
+    print(f"\nTotal token count: {total_samples}")
     
     
-    print("\n=== 闭式求解 W ===")
+    print("\n=== Closed-form solution for W ===")
     W = {}
     for ell in vace_inject_layers:
         Cdim = A[ell].shape[0]
@@ -218,52 +218,47 @@ def main():
     torch.save({"W": W, "vace_inject_layers": vace_inject_layers, "C": C,
                 "total_samples": total_samples, "ridge": RIDGE},
                SAVE_PATH)
-    print(f"\n已保存到 {SAVE_PATH}")
+    print(f"\nSaved to {SAVE_PATH}")
     
     
-    print("\n=== Holdout 残差评估 ===")
-    residual_sum = {ell: 0.0 for ell in vace_inject_layers}
-    baseline_sum = {ell: 0.0 for ell in vace_inject_layers}
-    holdout_count = 0
+    # print("\n=== Holdout Residual Evaluation ===")
+    # residual_sum = {ell: 0.0 for ell in vace_inject_layers}
+    # baseline_sum = {ell: 0.0 for ell in vace_inject_layers}
+    # holdout_count = 0
     
-    for video_path in tqdm(holdout_paths):
-        try:
-            feats_X, feats_Y = extract_feature_pair(
-                video_path, PROMPT, pipe_wan, pipe_cf, vace_inject_layers,
-                num_frames=NUM_FRAMES, height=HEIGHT, width=WIDTH,
-            )
-        except Exception as e:
-            print(f"[Error] {video_path}: {e}")
-            continue
+    # for video_path in tqdm(holdout_paths):
+    #     try:
+    #         feats_X, feats_Y = extract_feature_pair(
+    #             video_path, PROMPT, pipe_wan, pipe_cf, vace_inject_layers,
+    #             num_frames=NUM_FRAMES, height=HEIGHT, width=WIDTH,
+    #         )
+    #     except Exception as e:
+    #         print(f"[Error] {video_path}: {e}")
+    #         continue
         
-        for ell in vace_inject_layers:
-            Xl = feats_X[ell].reshape(-1, C).double()
-            Yl = feats_Y[ell].reshape(-1, C).double()
+    #     for ell in vace_inject_layers:
+    #         Xl = feats_X[ell].reshape(-1, C).double()
+    #         Yl = feats_Y[ell].reshape(-1, C).double()
             
-            Yl_pred = Xl @ W[ell].double()
+    #         Yl_pred = Xl @ W[ell].double()
             
             
-            residual_sum[ell] += ((Yl_pred - Yl) ** 2).sum().item()
-            baseline_sum[ell] += ((Xl - Yl) ** 2).sum().item()
+    #         residual_sum[ell] += ((Yl_pred - Yl) ** 2).sum().item()
+    #         baseline_sum[ell] += ((Xl - Yl) ** 2).sum().item()
         
-        holdout_count += 1
-        del feats_X, feats_Y
-        gc.collect()
-        torch.cuda.empty_cache()
+    #     holdout_count += 1
+    #     del feats_X, feats_Y
+    #     gc.collect()
+    #     torch.cuda.empty_cache()
     
-    print(f"\n=== Layer-wise residual report (over {holdout_count} holdout videos) ===")
-    print(f"{'Layer':>6} | {'Residual':>10} | {'Baseline':>10} | {'Improvement':>12}")
-    print("-" * 50)
-    for ell in vace_inject_layers:
-        r = residual_sum[ell]
-        b = baseline_sum[ell]
-        improvement = (1 - r / b) * 100 if b > 0 else 0
-        print(f"{ell:>6} | {r:>10.2f} | {b:>10.2f} | {improvement:>11.1f}%")
-    
-    print("\n说明: Improvement = 1 - residual/baseline。")
-    print("> 80%:W 学得非常好,推理可以放心用")
-    print("50%~80%:还行,可以试推理但效果可能打折")
-    print("< 30%:线性映射不够,考虑换 MLP 或重新设计")
+    # print(f"\n=== Layer-wise residual report (over {holdout_count} holdout videos) ===")
+    # print(f"{'Layer':>6} | {'Residual':>10} | {'Baseline':>10} | {'Improvement':>12}")
+    # print("-" * 50)
+    # for ell in vace_inject_layers:
+    #     r = residual_sum[ell]
+    #     b = baseline_sum[ell]
+    #     improvement = (1 - r / b) * 100 if b > 0 else 0
+    #     print(f"{ell:>6} | {r:>10.2f} | {b:>10.2f} | {improvement:>11.1f}%")
 
 
 if __name__ == "__main__":

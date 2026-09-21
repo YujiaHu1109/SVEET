@@ -9,22 +9,6 @@ import argparse
 
 
 def compute_pi_perp_for_layer(W_1, W_b=None, k=None, energy_threshold=0.9, verbose=True):
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     n = W_1.shape[0]
     if W_b is None:
         W_b = torch.eye(n, dtype=W_1.dtype, device=W_1.device)
@@ -44,28 +28,22 @@ def compute_pi_perp_for_layer(W_1, W_b=None, k=None, energy_threshold=0.9, verbo
         
         k = max(1, min(k, n - 1))
     
-    
     V_k = Vt[:k].T   # [n, k]
     
-    
-    
-    
     eye_check = (V_k.T @ V_k - torch.eye(k, dtype=V_k.dtype, device=V_k.device)).abs().max()
-    assert eye_check < 1e-3, f"V_k 列不正交: max diff = {eye_check}"
-    
+    assert eye_check < 1e-3, f"V_k columns are not orthogonal: max diff = {eye_check}"
     
     Pi_perp = torch.eye(n, dtype=V_k.dtype, device=V_k.device) - V_k @ V_k.T
     
-    if verbose:
-        
+    if verbose:    
         idemp_check = (Pi_perp @ Pi_perp - Pi_perp).abs().max().item()
         trace_val = Pi_perp.diagonal().sum().item()
         print(f"  ||A_1|| = {A_1.norm().item():.3f}")
-        print(f"  奇异值前 5: {S[:5].tolist()}")
-        print(f"  奇异值前 10 占总能量: {(S[:10]**2).sum() / (S**2).sum() * 100:.1f}%")
-        print(f"  选定 k = {k}, V_k shape = {V_k.shape}")
-        print(f"  Pi_perp 幂等性误差: {idemp_check:.2e}")
-        print(f"  Pi_perp 迹 = {trace_val:.2f}, 期望 ≈ {n - k}")
+        print(f"  Singular values (first 5): {S[:5].tolist()}")
+        print(f"  Top 10 singular values contribute: {(S[:10]**2).sum() / (S**2).sum() * 100:.1f}%")
+        print(f"  Selected k = {k}, V_k shape = {V_k.shape}")
+        print(f"  Pi_perp idempotency error: {idemp_check:.2e}")
+        print(f"  Pi_perp trace = {trace_val:.2f}, expected ≈ {n - k}")
     
     return Pi_perp, V_k, k, S
 
@@ -73,13 +51,13 @@ def compute_pi_perp_for_layer(W_1, W_b=None, k=None, energy_threshold=0.9, verbo
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--w_path", type=str, default="W_matrices.pt",
-                        help="包含 {ell: W} 的 .pt 文件")
+                        help="{ell: W}.pt")
     parser.add_argument("--save_path", type=str, default="pi_perp_0.8.pt",
-                        help="保存 Pi_perp 的路径")
+                        help="Path to save Pi_perp")
     parser.add_argument("--energy_threshold", type=float, default=0.8,
-                        help="按能量阈值自动选 k")
+                        help="Automatically select k based on energy threshold")
     parser.add_argument("--fixed_k", type=int, default=None,
-                        help="如果指定,所有层用同一个 k(覆盖 energy_threshold)")
+                        help="If specified, use the same k for all layers (overrides energy_threshold)")
     args = parser.parse_args()
     
     
@@ -89,9 +67,9 @@ def main():
     
     
     n_list = [W.shape[0] for W in W_dict.values()]
-    assert all(n == n_list[0] for n in n_list), "所有层 W 形状不一致"
+    assert all(n == n_list[0] for n in n_list), "The shapes of W are not consistent"
     n = n_list[0]
-    print(f"维度 n = {n}, 共 {len(W_dict)} 层")
+    print(f"Dimension n = {n}, total layers: {len(W_dict)}")
     
     
     Pi_perp_dict = {}
@@ -99,10 +77,10 @@ def main():
     k_dict = {}
     S_dict = {}
     
-    print(f"\n=== 开始计算 Pi_perp ===")
-    print(f"  能量阈值: {args.energy_threshold}")
+    print(f"\n=== Starting to compute Pi_perp ===")
+    print(f"  Energy threshold: {args.energy_threshold}")
     if args.fixed_k is not None:
-        print(f"  固定 k: {args.fixed_k}")
+        print(f"  Fixed k: {args.fixed_k}")
     
     for ell in sorted(W_dict.keys()):
         print(f"\n--- Layer {ell} ---")
@@ -131,10 +109,10 @@ def main():
         "method": "weight_orthogonal",
     }, args.save_path)
     
-    print(f"\n=== 已保存到 {args.save_path} ===")
-    print("各层选定的 k:")
+    print(f"\n=== Saved to {args.save_path} ===")
+    print("k selected for each layer:")
     for ell in sorted(k_dict.keys()):
-        print(f"  Layer {ell}: k = {k_dict[ell]}, n - k = {n - k_dict[ell]} (VACE 可用维度)")
+        print(f"  Layer {ell}: k = {k_dict[ell]}, n - k = {n - k_dict[ell]} (VACE available dimensions)")
 
 
 if __name__ == "__main__":
