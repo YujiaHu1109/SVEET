@@ -84,7 +84,7 @@ hf download Cicici1109/SVEET style.safetensors --local-dir checkpoints/sveet-con
 hf download zhuhz22/Causal-Forcing chunkwise/causal_forcing.pt --local-dir checkpoints
 ```
 
-# Inference with the released SVEET checkpoint
+## Inference with the released SVEET checkpoint
 
 Merge the LoRA weight into the full VACE model for inference:
 
@@ -111,7 +111,7 @@ python infer_single.py \
   --seed 123
 ```
 
-# Training and method reproduction
+## Training and method reproduction
 
 This section is **optional** for inference users\. Follow these steps to reproduce our training pipeline and customize new editing LoRAs\.
 
