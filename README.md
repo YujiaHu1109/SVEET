@@ -74,13 +74,13 @@ checkpoints/
 Run all download commands sequentially to get full inference weights:
 
 ```Plain Text
-# 1. Download Wan2.1-VACE base model
+1. Download Wan2.1-VACE base model
 hf download Wan-AI/Wan2.1-VACE-1.3B --local-dir checkpoints/bidirectional/Wan-AI/Wan2.1-VACE-1.3B
 
-# 2. Download released SVEET LoRA
+2. Download released SVEET LoRA
 hf download Cicici1109/SVEET style.safetensors --local-dir checkpoints/sveet-control
 
-# 3. Download Causal Forcing checkpoint
+3. Download Causal Forcing checkpoint
 hf download zhuhz22/Causal-Forcing chunkwise/causal_forcing.pt --local-dir checkpoints
 ```
 
