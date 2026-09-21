@@ -11,7 +11,8 @@
 > Jiajun Li,
 > Zihao He
 > and
-> [Songhua Liu](https://huage001.github.io).
+> [Songhua Liu](https://huage001.github.io)
+> Shanghai Jiao Tong University
 > <br>
 
 ![Demo](assets/teaser.png)
