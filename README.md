@@ -1,7 +1,7 @@
 # SVEET: Streaming Video Editing with Easy Adaptation
 <br>
 
-<a href="https://arxiv.org/abs/2506.04158"><img src="https://img.shields.io/badge/arXiv%20paper-2506.04158-b31b1b.svg" alt="arXiv"></a>
+<a href="https://arxiv.org/abs/2506.04158"><img src="https://img.shields.io/badge/arXiv%20paper-2609.04158-b31b1b.svg" alt="arXiv"></a>
 <a href="https://huggingface.co/Cicici1109/SVEET"><img src="https://img.shields.io/badge/🤗_HuggingFace-Model-ffbd45.svg" alt="HuggingFace"></a>
 
 
@@ -185,11 +185,6 @@ This project builds on [DiffSynth\-Studio](https://github.com/modelscope/DiffSyn
 
 ## Citation
 
-```bibtex
-@article{hu2025ieap,
-  title={Image Editing As Programs with Diffusion Models},
-  author={Hu, Yujia and Liu, Songhua and Tan, Zhenxiong and Yang, Xingyi and Wang, Xinchao},
-  journal={NeurIPS},
-  year={2025}
-}
+```
+TODO
 ```
