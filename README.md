@@ -1,7 +1,7 @@
 # SVEET: Streaming Video Editing with Easy Adaptation
 <br>
 
-<a href="https://arxiv.org/abs/2506.04158"><img src="https://img.shields.io/badge/arXiv%20paper-2609.04158-b31b1b.svg" alt="arXiv"></a>
+<a href="https://arxiv.org/abs/2609.24788"><img src="https://img.shields.io/badge/arXiv%20paper-2609.24788-b31b1b.svg" alt="arXiv"></a>
 <a href="https://huggingface.co/Cicici1109/SVEET"><img src="https://img.shields.io/badge/🤗_HuggingFace-Model-ffbd45.svg" alt="HuggingFace"></a>
 
 
@@ -187,5 +187,13 @@ This project builds on [DiffSynth\-Studio](https://github.com/modelscope/DiffSyn
 ## Citation
 
 ```
-TODO
+@misc{hu2026streamingvideoeditingeasy,
+      title={Streaming Video Editing with Easy Adaptation}, 
+      author={Yujia Hu and Jiajun Li and Zihao He and Songhua Liu},
+      year={2026},
+      eprint={2609.24788},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2609.24788}, 
+}
 ```
