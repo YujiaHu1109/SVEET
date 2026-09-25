@@ -182,7 +182,7 @@ accelerate launch examples/wanvideo/model_training/train.py \
 
 ## Acknowledgements and licenses
 
-This project builds on [DiffSynth\-Studio](https://github.com/modelscope/DiffSynth-Studio), [Wan2.1-VACE](https://huggingface.co/Wan-AI/Wan2.1-VACE-1.3B) and [Causal Forcing](https://github.com/thu-ml/Causal-Forcing)\. Please refer to [THIRD_PARTY.md](THIRD_PARTY.md]) for detailed license terms before redistribution\.
+This project builds on [DiffSynth\-Studio](https://github.com/modelscope/DiffSynth-Studio), [Wan2.1-VACE](https://huggingface.co/Wan-AI/Wan2.1-VACE-1.3B) and [Causal Forcing](https://github.com/thu-ml/Causal-Forcing)\. Please refer to THIRD_PARTY.md for detailed license terms before redistribution\.
 
 ## Citation
 
